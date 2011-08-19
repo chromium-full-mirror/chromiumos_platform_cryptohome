@@ -75,6 +75,9 @@ class Pkcs11Init {
   // the initialized file.
   virtual bool SetInitialized(bool status);
 
+  // Ensures all sensitive files have been removed from the token directory.
+  virtual bool SanitizeTokenDirectory();
+
   static const CK_SLOT_ID kDefaultTpmSlotId;
   static const CK_ULONG kMaxPinLen;
   static const CK_ULONG kMaxLabelLen;
@@ -95,6 +98,7 @@ class Pkcs11Init {
   static const std::string kPkcsSlotdPath;
   static const std::string kPkcsSlotPath;
   static const std::string kPkcsSlotCmd[];
+  static const char* kSensitiveTokenFiles[];
 
   static const std::string kPkcs11InitializedFile;
 

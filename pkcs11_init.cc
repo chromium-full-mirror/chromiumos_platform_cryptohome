@@ -43,6 +43,12 @@ const std::string Pkcs11Init::kPkcsSlotdPath = "/usr/sbin/pkcsslotd";
 const std::string Pkcs11Init::kPkcsSlotPath = "/usr/sbin/pkcs_slot";
 const std::string Pkcs11Init::kPkcsSlotCmd[] = { Pkcs11Init::kPkcsSlotPath,
                                                  "0", "tpm" };
+const char* Pkcs11Init::kSensitiveTokenFiles[] = {
+  "PUBLIC_ROOT_KEY.pem",
+  "PRIVATE_ROOT_KEY.pem",
+  NULL
+};
+
 // This file in the user's cryptohome signifies that Pkcs11 initialization
 // was completed for the user.
 const std::string Pkcs11Init::kPkcs11InitializedFile =
@@ -105,6 +111,10 @@ bool Pkcs11Init::Initialize() {
                                  &saved_gid))
       return false;
     bool success = SetUserTokenPins() && SetUserTokenFilePermissions();
+    // Although sensitive files should no longer be created, sanitize as a fail-
+    // safe.
+    if (!SanitizeTokenDirectory())
+      success = false;
     if (!SetInitialized(success))
       success = false;
     if (!platform_->SetProcessId(saved_uid, saved_gid, NULL, NULL))
@@ -118,7 +128,13 @@ bool Pkcs11Init::Initialize() {
     return success;
   }
 
+  // Sanitize the token directory in case the token was initialized before
+  // sanitization was added.
+  if (!SanitizeTokenDirectory())
+    return false;
+
   LOG(INFO) << "PKCS#11 is already initialized.";
+
   return true;
 }
 
@@ -339,7 +355,7 @@ bool Pkcs11Init::IsUserTokenBroken() {
     return true;
   }
 
-  if (!platform_->FileExists(StringPrintf("%s/PRIVATE_ROOT_KEY.pem",
+  if (!platform_->FileExists(StringPrintf("%s/NVTOK.DAT",
                                         kUserTokenDir)) ||
       !platform_->FileExists(StringPrintf("%s/TOK_OBJ/70000000",
                                         kUserTokenDir))) {
@@ -376,6 +392,22 @@ bool Pkcs11Init::SetInitialized(bool status) {
   if (!platform_->WriteFile(kPkcs11InitializedFile, empty_blob))
     return false;
   is_initialized_ = true;
+  return true;
+}
+
+bool Pkcs11Init::SanitizeTokenDirectory() {
+  for (int i = 0; kSensitiveTokenFiles[i]; ++i) {
+    std::string full_path = StringPrintf("%s/%s",
+                                         kUserTokenDir,
+                                         kSensitiveTokenFiles[i]);
+    if (platform_->FileExists(full_path)) {
+      LOG(INFO) << "Removing " << full_path;
+      if (!platform_->DeleteFile(full_path, false)) {
+        PLOG(ERROR) << "Could not remove " << full_path;
+        return false;
+      }
+    }
+  }
   return true;
 }
 
