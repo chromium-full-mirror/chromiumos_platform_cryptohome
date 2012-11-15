@@ -105,6 +105,9 @@ bool Tpm::Init(Platform* platform, bool open_key) {
   DCHECK(platform);
   platform_ = platform;
 
+  metrics_.reset(new MetricsLibrary());
+  metrics_->Init();
+
   // Migrate any old status files from old location to new location.
   if (!file_util::PathExists(FilePath(kTpmOwnedFile)) &&
       file_util::PathExists(FilePath(kTpmOwnedFileOld))) {
@@ -664,6 +667,10 @@ Tpm::TpmRetryAction Tpm::HandleError(TSS_RESULT result) {
       // This error occurs on bad password
     case ERROR_CODE(TPM_E_DECRYPT_ERROR):
       status = Tpm::RetryNone;
+      break;
+    // This error code occurs when the TPM is in an error state.
+    case ERROR_CODE(TPM_E_FAIL):
+      metrics_->SendEnumToUMA("Cryptohome.Errors", 1, 10);
       break;
     default:
       break;
