@@ -4,7 +4,6 @@
 
 #include "service.h"
 
-#include <signal.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -27,6 +26,7 @@
 //           We will need a "CheckKey" interface as well to simplify
 //           offline authentication checks.
 
+
 namespace switches {
 // Keeps std* open for debugging
 static const char *kNoCloseOnDaemonize = "noclose";
@@ -39,9 +39,6 @@ int main(int argc, char **argv) {
   CommandLine::Init(argc, argv);
 
   chromeos::InitLog(chromeos::kLogToSyslog | chromeos::kLogToStderr);
-
-  // Ignore SIGPIPE.
-  CHECK(SIG_ERR != signal(SIGPIPE, SIG_IGN));
 
   // Allow the commands to be configurable.
   CommandLine *cl = CommandLine::ForCurrentProcess();
